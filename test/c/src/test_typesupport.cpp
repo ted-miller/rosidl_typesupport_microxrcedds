@@ -27,6 +27,10 @@
 #include "rosidl_typesupport_microxrcedds_test_msg/msg/sequence.h"
 #include "rosidl_typesupport_microxrcedds_test_msg/msg/compound.h"
 #include "rosidl_typesupport_microxrcedds_test_msg/msg/not_enought_memory_test.h"
+
+#include "rosidl_typesupport_microxrcedds_test_msg/msg/regression10.h"
+#include "rosidl_typesupport_microxrcedds_test_msg/msg/regression11.h"
+
 #include "rosidl_runtime_c/string_functions.h"
 
 /*
@@ -615,6 +619,31 @@ TYPED_TEST(MemoryCornerCasesTestTypeSupport, memory_corner_cases)
 }
 
 
-// TEST(Regression_1){
+TEST(Regressions, Regression1){
+  const rosidl_message_type_support_t * type_support =
+    ROSIDL_GET_MSG_TYPE_SUPPORT(rosidl_typesupport_microxrcedds_test_msg, msg, Regression10);
 
-// }
+  ASSERT_NE(type_support, nullptr);
+
+  const rosidl_message_type_support_t * rosidl_message_type_support = get_message_typesupport_handle(
+      type_support, ROSIDL_TYPESUPPORT_MICROXRCEDDS_C__IDENTIFIER_VALUE);
+
+  ASSERT_NE(rosidl_message_type_support, nullptr);
+
+  const message_type_support_callbacks_t * callbacks = static_cast<const message_type_support_callbacks_t *>(
+      rosidl_message_type_support->data);
+
+  ASSERT_NE(callbacks, nullptr);
+
+  rosidl_typesupport_microxrcedds_test_msg__msg__Regression10 msg = {};
+
+  EXPECT_EQ(callbacks->get_serialized_size(&msg), 166);
+
+  uint8_t buffer[500];
+  ucdrBuffer cdr;
+  ucdr_init_buffer(&cdr, buffer, sizeof(buffer));
+
+  callbacks->cdr_serialize(&msg, &cdr);
+
+  EXPECT_EQ(cdr.offset, 166UL);
+}

@@ -1,5 +1,5 @@
 byte a
 uint16 b
-uint16 hardware_id
-uint8 c
-Regression11[10] d
+uint16 c
+uint8 d
+Regression11[10] e
