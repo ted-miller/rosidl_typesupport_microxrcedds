@@ -214,6 +214,27 @@ TEST(asdfasdf, asdfasdf){
     ASSERT_TRUE(introspect_and_compare(&msg, &out, introspection));
   }
 
+  {
+    eprosima::fastcdr::FastBuffer input_buffer((char *) fast_buffer, fast_size);
+    eprosima::fastcdr::Cdr cdr(fast_cdr_buffer);
+
+    rosidl_typesupport_microxrcedds_test_msg__msg__Regression10 out = {};
+    memset(&out, 0xFF, sizeof(out));
+    ASSERT_TRUE(fast_callbacks->cdr_deserialize(cdr, &out));
+    ASSERT_TRUE(introspect_and_compare(&msg, &out, introspection));
+  }
+
+  // ROS 2 -> micro-ROS
+  {
+    ucdrBuffer cdr;
+    ucdr_init_buffer(&cdr, xrce_buffer, xrce_size);
+
+    rosidl_typesupport_microxrcedds_test_msg__msg__Regression10 out = {};
+    memset(&out, 0xFF, sizeof(out));
+    ASSERT_TRUE(xrce_callbacks->cdr_deserialize(&cdr, &out));
+    ASSERT_TRUE(introspect_and_compare(&msg, &out, introspection));
+  }
+
   free(xrce_buffer);
   free(fast_buffer);
   introspection->fini_function(&msg);
