@@ -27,6 +27,8 @@ if(BUILD_TESTING)
   find_package(rosidl_typesupport_introspection_c REQUIRED)
 
   find_package(rosidl_typesupport_microxrcedds_test_msg REQUIRED)
+  find_package(geometry_msgs)
+
   find_package(rosidl_runtime_c REQUIRED)
   find_package(rosidl_typesupport_c REQUIRED)
   find_package(ament_cmake_gtest REQUIRED)
@@ -39,6 +41,7 @@ if(BUILD_TESTING)
 
   ament_target_dependencies(${TEST_NAME}
     rosidl_typesupport_microxrcedds_test_msg
+    geometry_msgs
     rosidl_typesupport_microxrcedds_c
     rosidl_typesupport_fastrtps_c
     rosidl_typesupport_introspection_c

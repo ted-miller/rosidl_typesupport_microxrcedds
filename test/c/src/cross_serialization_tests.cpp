@@ -33,9 +33,6 @@
 #include "rosidl_typesupport_introspection_c/message_introspection.h"
 #include "rosidl_typesupport_introspection_c/field_types.h"
 
-// Used types
-#include "rosidl_typesupport_microxrcedds_test_msg/msg/regression10.h"
-
 template <typename T>
 class CrossSerialization {
   public:
@@ -147,13 +144,13 @@ class CrossSerialization {
         const rosidl_message_type_support_t * aux_introspection_typesupport = get_message_typesupport_handle(member.members_, rosidl_typesupport_introspection_c__identifier);
         const rosidl_typesupport_introspection_c__MessageMembers * introspection_members = (rosidl_typesupport_introspection_c__MessageMembers*) aux_introspection_typesupport->data;
         size_t count = (is_array) ? member.array_size_ : 1;
-        member_check &= cb(msg1 + member.offset_, msg2 + member.offset_, member, rec);
+        member_check &= cb(((uint8_t *) msg1) + member.offset_, ((uint8_t *) msg2) + member.offset_, member, rec);
         for (size_t i = 0; i < count; i++) {
-          member_check &= introspect_and_execute(msg1 + member.offset_ + i * introspection_members->size_of_, msg2 + member.offset_ + i * introspection_members->size_of_, cb, introspection_members, rec + 1);
+          member_check &= introspect_and_execute(((uint8_t *) msg1) + member.offset_ + i * introspection_members->size_of_, ((uint8_t *) msg2) + member.offset_ + i * introspection_members->size_of_, cb, introspection_members, rec + 1);
         }
       } else {
         // Basic type
-        member_check &= cb(msg1 + member.offset_, msg2 + member.offset_, member, rec);
+        member_check &= cb(((uint8_t *) msg1) + member.offset_, ((uint8_t *) msg2) + member.offset_, member, rec);
       }
 
       return_value &= member_check;
@@ -217,9 +214,10 @@ class CrossSerialization {
     case rosidl_typesupport_introspection_c__ROS_TYPE_DOUBLE:
       size = 8;
       break;
+    case rosidl_typesupport_introspection_c__ROS_TYPE_STRING:
+      return strcmp((const char *) field1, (const char *) field2) == 0;
     case rosidl_typesupport_introspection_c__ROS_TYPE_LONG_DOUBLE:
     case rosidl_typesupport_introspection_c__ROS_TYPE_WCHAR:
-    case rosidl_typesupport_introspection_c__ROS_TYPE_STRING:
     case rosidl_typesupport_introspection_c__ROS_TYPE_WSTRING:
     default:
       break;
@@ -234,7 +232,7 @@ class CrossSerialization {
           size_t count = (m.is_array_) ? m.array_size_ : 1;
           bool com = compare_basic_type_field(msg1, msg2, m.type_id_, count);
           if (!com) {
-            std::cout << "compare_basic_type_field failed for member " << m.name_ << " of type " << m.type_id_ << std::endl;
+            std::cout << "compare_basic_type_field failed for member " << m.name_ << std::endl;
           }
           return com;
         }
@@ -258,28 +256,120 @@ class CrossSerialization {
   rosidl_typesupport_introspection_c__MessageMembers * introspection;
 };
 
-using MyTypes = ::testing::Types<char, int, rosidl_typesupport_microxrcedds_test_msg__msg__Regression10>;
-TYPED_TEST_SUITE(SerDesTests, MyTypes);
-
+#include <geometry_msgs/msg/accel_stamped.h>
 TEST(SerDesTests, Example) {
-
-  CrossSerialization<rosidl_typesupport_microxrcedds_test_msg__msg__Regression10> serdes(ROSIDL_GET_MSG_TYPE_SUPPORT(rosidl_typesupport_microxrcedds_test_msg, msg, Regression10));
+  using DataType = geometry_msgs__msg__AccelStamped;
+  CrossSerialization<DataType> serdes(ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, AccelStamped));
 
   ASSERT_TRUE(serdes.check());
-  rosidl_typesupport_microxrcedds_test_msg__msg__Regression10 msg = {};
+  DataType msg = {};
   serdes.introspection->init_function(&msg, ROSIDL_RUNTIME_C_MSG_INIT_ALL);
-  ASSERT_TRUE(serdes.serialize_and_compare_buffers(msg));
-  ASSERT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.fast_buffer, serdes.fast_size, msg));
-  ASSERT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg));
-  ASSERT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg));
-  ASSERT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.fast_buffer, serdes.fast_size, msg));
+  EXPECT_TRUE(serdes.serialize_and_compare_buffers(msg));
+  EXPECT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.fast_buffer, serdes.fast_size, msg));
+  EXPECT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg));
+  EXPECT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg));
+  EXPECT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.fast_buffer, serdes.fast_size, msg));
   serdes.introspection->fini_function(&msg);
-
-  rosidl_typesupport_microxrcedds_test_msg__msg__Regression10 t1 = {};
-  rosidl_typesupport_microxrcedds_test_msg__msg__Regression10 t2 = {};
-
-  t1.b = 1;
-  t1.c = 2;
-
-  ASSERT_TRUE(serdes.introspect_and_compare(&t1, &t2));
 }
+
+#define TEST_TYPE(pkg, name_capitalized) \
+  TEST(SerDesTests, pkg ## _ ## name_capitalized) { \
+    using DataType = pkg##__msg__##name_capitalized; \
+    CrossSerialization<DataType> serdes(ROSIDL_GET_MSG_TYPE_SUPPORT(pkg, msg, name_capitalized));  \
+    ASSERT_TRUE(serdes.check()); \
+    DataType msg = {}; \
+    serdes.introspection->init_function(&msg, ROSIDL_RUNTIME_C_MSG_INIT_ALL); \
+    ASSERT_TRUE(serdes.serialize_and_compare_buffers(msg)); \
+    ASSERT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.fast_buffer, serdes.fast_size, msg)); \
+    ASSERT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg)); \
+    ASSERT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg)); \
+    ASSERT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.fast_buffer, serdes.fast_size, msg)); \
+    serdes.introspection->fini_function(&msg); \
+  }
+
+// #include <geometry_msgs/msg/accel.h>
+// TEST_TYPE(geometry_msgs, Accel)
+
+// #include <geometry_msgs/msg/accel_stamped.h>
+// TEST_TYPE(geometry_msgs, AccelStamped)
+
+// #include <geometry_msgs/msg/accel_with_covariance.h>
+// TEST_TYPE(geometry_msgs, AccelWithCovariance)
+
+// #include <geometry_msgs/msg/accel_with_covariance_stamped.h>
+// TEST_TYPE(geometry_msgs, AccelWithCovarianceStamped)
+
+// #include <geometry_msgs/msg/inertia.h>
+// TEST_TYPE(geometry_msgs, Inertia)
+
+// #include <geometry_msgs/msg/inertia_stamped.h>
+// TEST_TYPE(geometry_msgs, InertiaStamped)
+
+// #include <geometry_msgs/msg/point.h>
+// TEST_TYPE(geometry_msgs, Point)
+
+// #include <geometry_msgs/msg/point32.h>
+// TEST_TYPE(geometry_msgs, Point32)
+
+// #include <geometry_msgs/msg/point_stamped.h>
+// TEST_TYPE(geometry_msgs, PointStamped)
+
+// #include <geometry_msgs/msg/polygon.h>
+// TEST_TYPE(geometry_msgs, Polygon)
+
+// #include <geometry_msgs/msg/polygon_stamped.h>
+// TEST_TYPE(geometry_msgs, PolygonStamped)
+
+// #include <geometry_msgs/msg/pose.h>
+// TEST_TYPE(geometry_msgs, Pose)
+
+// #include <geometry_msgs/msg/pose2_d.h>
+// TEST_TYPE(geometry_msgs, Pose2D)
+
+// #include <geometry_msgs/msg/pose_array.h>
+// TEST_TYPE(geometry_msgs, PoseArray)
+
+// #include <geometry_msgs/msg/pose_stamped.h>
+// TEST_TYPE(geometry_msgs, PoseStamped)
+
+// #include <geometry_msgs/msg/pose_with_covariance.h>
+// TEST_TYPE(geometry_msgs, PoseWithCovariance)
+
+// #include <geometry_msgs/msg/pose_with_covariance_stamped.h>
+// TEST_TYPE(geometry_msgs, PoseWithCovarianceStamped)
+
+// #include <geometry_msgs/msg/quaternion.h>
+// TEST_TYPE(geometry_msgs, Quaternion)
+
+// #include <geometry_msgs/msg/quaternion_stamped.h>
+// TEST_TYPE(geometry_msgs, QuaternionStamped)
+
+// #include <geometry_msgs/msg/transform.h>
+// TEST_TYPE(geometry_msgs, Transform)
+
+// #include <geometry_msgs/msg/transform_stamped.h>
+// TEST_TYPE(geometry_msgs, TransformStamped)
+
+// #include <geometry_msgs/msg/twist.h>
+// TEST_TYPE(geometry_msgs, Twist)
+
+// #include <geometry_msgs/msg/twist_stamped.h>
+// TEST_TYPE(geometry_msgs, TwistStamped)
+
+// #include <geometry_msgs/msg/twist_with_covariance.h>
+// TEST_TYPE(geometry_msgs, TwistWithCovariance)
+
+// #include <geometry_msgs/msg/twist_with_covariance_stamped.h>
+// TEST_TYPE(geometry_msgs, TwistWithCovarianceStamped)
+
+// #include <geometry_msgs/msg/vector3.h>
+// TEST_TYPE(geometry_msgs, Vector3)
+
+// #include <geometry_msgs/msg/vector3_stamped.h>
+// TEST_TYPE(geometry_msgs, Vector3Stamped)
+
+// #include <geometry_msgs/msg/wrench.h>
+// TEST_TYPE(geometry_msgs, Wrench)
+
+// #include <geometry_msgs/msg/wrench_stamped.h>
+// TEST_TYPE(geometry_msgs, WrenchStamped)
