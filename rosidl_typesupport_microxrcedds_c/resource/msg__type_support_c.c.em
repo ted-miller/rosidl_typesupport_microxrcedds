@@ -240,7 +240,11 @@ static bool _@(message.structure.namespaced_type.name)__cdr_serialize(
 @[    end if]@
   }
 @[  elif isinstance(member.type, BasicType)]@
+@[    if get_suffix(member.type.typename) == "bool"]@
+  rv = ucdr_serialize_@(get_suffix(member.type.typename))(cdr, (ros_message->@(member.name)) ? 0x01 : 0x00);
+@[    else]@
   rv = ucdr_serialize_@(get_suffix(member.type.typename))(cdr, ros_message->@(member.name));
+@[    end if]@
 @[  elif isinstance(member.type, AbstractString)]@
  {
     uint32_t string_len = (ros_message->@(member.name).data == NULL) ? 0 : (uint32_t)strlen(ros_message->@(member.name).data) + 1;
