@@ -33,6 +33,9 @@
 #include "rosidl_typesupport_introspection_c/message_introspection.h"
 #include "rosidl_typesupport_introspection_c/field_types.h"
 
+#include <rosidl_runtime_c/string.h>
+#include <rosidl_runtime_c/string_functions.h>
+
 template <typename T>
 class CrossSerialization {
   public:
@@ -215,7 +218,6 @@ class CrossSerialization {
       size = 8;
       break;
     case rosidl_typesupport_introspection_c__ROS_TYPE_STRING:
-      return strcmp((const char *) field1, (const char *) field2) == 0;
     case rosidl_typesupport_introspection_c__ROS_TYPE_LONG_DOUBLE:
     case rosidl_typesupport_introspection_c__ROS_TYPE_WCHAR:
     case rosidl_typesupport_introspection_c__ROS_TYPE_WSTRING:
@@ -226,15 +228,47 @@ class CrossSerialization {
     return (!size) ? false : memcmp(field1, field2, size * count) == 0;
   }
 
-  bool introspect_and_compare(const void * msg1, const void * msg2, const rosidl_typesupport_introspection_c__MessageMembers * members = nullptr, size_t rec = 0) {
-    return introspect_and_execute(msg1, msg2, [&](const void * msg1, const void * msg2, const rosidl_typesupport_introspection_c__MessageMember m, size_t /* level */) -> bool {
-        if (m.type_id_ != rosidl_typesupport_introspection_c__ROS_TYPE_MESSAGE && !m.is_array_) {
+  bool introspect_and_compare(const void * msg1, const void * msg2) {
+    return introspect_and_execute(msg1, msg2, [&](const void * msg_inner_1, const void * msg_inner_2, const rosidl_typesupport_introspection_c__MessageMember m, size_t /* level */) -> bool {
+        if (m.type_id_ == rosidl_typesupport_introspection_c__ROS_TYPE_STRING) {
+          rosidl_runtime_c__String * str1 = (rosidl_runtime_c__String *) msg_inner_1;
+          rosidl_runtime_c__String * str2 = (rosidl_runtime_c__String *) msg_inner_2;
+          bool str_eq = strcmp(str1->data, str2->data) == 0;
+          bool size_eq = str1->size == str2->size;
+          bool capacity_eq = str1->capacity == str2->capacity;
+          if (!(str_eq && size_eq && capacity_eq)) {
+            std::cout << "compare string failed for member " << m.name_ << "string size:" << str1->data << std::endl;
+          }
+          return str_eq && size_eq && capacity_eq;
+        } else if (m.type_id_ != rosidl_typesupport_introspection_c__ROS_TYPE_MESSAGE && !m.is_array_) {
           size_t count = (m.is_array_) ? m.array_size_ : 1;
           bool com = compare_basic_type_field(msg1, msg2, m.type_id_, count);
           if (!com) {
             std::cout << "compare_basic_type_field failed for member " << m.name_ << std::endl;
           }
           return com;
+        }
+        return true;
+    });
+  }
+
+  void init_strings(const void * msg, size_t string_size) {
+    introspect_and_execute(msg, nullptr, [&](const void * msg1, const void * /* msg2 */, const rosidl_typesupport_introspection_c__MessageMember m, size_t /* level */) -> bool {
+        if (m.type_id_ == rosidl_typesupport_introspection_c__ROS_TYPE_STRING) {
+          rosidl_runtime_c__String * str = (rosidl_runtime_c__String *) msg1;
+          std::string str_sample(string_size, 'a');
+          rosidl_runtime_c__String__assign(str, str_sample.c_str());
+        }
+        return true;
+    });
+  }
+
+  void randomize_strings(const void * msg) {
+    introspect_and_execute(msg, nullptr, [&](const void * msg1, const void * /* msg2 */, const rosidl_typesupport_introspection_c__MessageMember m, size_t /* level */) -> bool {
+        if (m.type_id_ == rosidl_typesupport_introspection_c__ROS_TYPE_STRING) {
+          rosidl_runtime_c__String * str = (rosidl_runtime_c__String *) msg1;
+          std::string str_sample(rand() % 100, 'a');
+          rosidl_runtime_c__String__assign(str, str_sample.c_str());
         }
         return true;
     });
@@ -256,20 +290,44 @@ class CrossSerialization {
   rosidl_typesupport_introspection_c__MessageMembers * introspection;
 };
 
-#include <geometry_msgs/msg/accel_stamped.h>
+#include <example_interfaces/msg/u_int64_multi_array.h>
 TEST(SerDesTests, Example) {
-  using DataType = geometry_msgs__msg__AccelStamped;
-  CrossSerialization<DataType> serdes(ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, AccelStamped));
+  using DataType = example_interfaces__msg__UInt64MultiArray;
+  CrossSerialization<DataType> serdes(ROSIDL_GET_MSG_TYPE_SUPPORT(example_interfaces, msg, UInt64MultiArray));
 
   ASSERT_TRUE(serdes.check());
-  DataType msg = {};
-  serdes.introspection->init_function(&msg, ROSIDL_RUNTIME_C_MSG_INIT_ALL);
-  EXPECT_TRUE(serdes.serialize_and_compare_buffers(msg));
-  EXPECT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.fast_buffer, serdes.fast_size, msg));
-  EXPECT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg));
-  EXPECT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg));
-  EXPECT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.fast_buffer, serdes.fast_size, msg));
-  serdes.introspection->fini_function(&msg);
+  std::array<DataType, 8> msgs = {};
+
+  uint8_t string_size = 0;
+  for (auto msg : msgs) {
+    serdes.introspection->init_function(&msg, ROSIDL_RUNTIME_C_MSG_INIT_ALL);
+
+    if (string_size != 0) {
+      serdes.init_strings(&msg, string_size);
+    }
+
+    EXPECT_TRUE(serdes.serialize_and_compare_buffers(msg));
+
+    if (string_size == 0) {
+      EXPECT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg));
+      EXPECT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.fast_buffer, serdes.fast_size, msg));
+    }
+
+    EXPECT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg));
+    serdes.introspection->fini_function(&msg);
+    string_size++;
+  }
+
+  for (size_t i = 0; i < 10; i++)
+  {
+    DataType msg = {};
+    serdes.introspection->init_function(&msg, ROSIDL_RUNTIME_C_MSG_INIT_ALL);
+    serdes.randomize_strings(&msg);
+
+    EXPECT_TRUE(serdes.serialize_and_compare_buffers(msg));
+    EXPECT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg));
+    serdes.introspection->fini_function(&msg);
+  }
 }
 
 #define TEST_TYPE(pkg, name_capitalized) \
@@ -277,15 +335,39 @@ TEST(SerDesTests, Example) {
     using DataType = pkg##__msg__##name_capitalized; \
     CrossSerialization<DataType> serdes(ROSIDL_GET_MSG_TYPE_SUPPORT(pkg, msg, name_capitalized));  \
     ASSERT_TRUE(serdes.check()); \
-    DataType msg = {}; \
-    serdes.introspection->init_function(&msg, ROSIDL_RUNTIME_C_MSG_INIT_ALL); \
-    ASSERT_TRUE(serdes.serialize_and_compare_buffers(msg)); \
-    ASSERT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.fast_buffer, serdes.fast_size, msg)); \
-    ASSERT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg)); \
-    ASSERT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg)); \
-    ASSERT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.fast_buffer, serdes.fast_size, msg)); \
-    serdes.introspection->fini_function(&msg); \
-  }
+    std::array<DataType, 8> msgs = {}; \
+ \
+    uint8_t string_size = 0; \
+    for (auto msg : msgs) { \
+      serdes.introspection->init_function(&msg, ROSIDL_RUNTIME_C_MSG_INIT_ALL); \
+ \
+      if (string_size != 0) { \
+        serdes.init_strings(&msg, string_size); \
+      } \
+ \
+      EXPECT_TRUE(serdes.serialize_and_compare_buffers(msg)); \
+ \
+      if (string_size == 0) { \
+        EXPECT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg)); \
+        EXPECT_TRUE(serdes.deserialize_with_microcdr_and_compare(serdes.fast_buffer, serdes.fast_size, msg)); \
+      } \
+ \
+      EXPECT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg)); \
+      serdes.introspection->fini_function(&msg); \
+      string_size++; \
+    } \
+ \
+    for (size_t i = 0; i < 10; i++) \
+    { \
+      DataType msg = {}; \
+      serdes.introspection->init_function(&msg, ROSIDL_RUNTIME_C_MSG_INIT_ALL); \
+      serdes.randomize_strings(&msg); \
+ \
+      EXPECT_TRUE(serdes.serialize_and_compare_buffers(msg)); \
+      EXPECT_TRUE(serdes.deserialize_with_fastcdr_and_compare(serdes.xrce_buffer, serdes.xrce_size, msg)); \
+      serdes.introspection->fini_function(&msg); \
+    } \
+  } \
 
 // #include <geometry_msgs/msg/accel.h>
 // TEST_TYPE(geometry_msgs, Accel)
@@ -373,3 +455,91 @@ TEST(SerDesTests, Example) {
 
 // #include <geometry_msgs/msg/wrench_stamped.h>
 // TEST_TYPE(geometry_msgs, WrenchStamped)
+
+
+// #include <example_interfaces/msg/bool.h>
+// TEST_TYPE(example_interfaces, Bool)
+
+// #include <example_interfaces/msg/byte.h>
+// TEST_TYPE(example_interfaces, Byte)
+
+// #include <example_interfaces/msg/byte_multi_array.h>
+// TEST_TYPE(example_interfaces, ByteMultiArray)
+
+// #include <example_interfaces/msg/char.h>
+// TEST_TYPE(example_interfaces, Char)
+
+// #include <example_interfaces/msg/empty.h>
+// TEST_TYPE(example_interfaces, Empty)
+
+// #include <example_interfaces/msg/float32.h>
+// TEST_TYPE(example_interfaces, Float32)
+
+// #include <example_interfaces/msg/float32_multi_array.h>
+// TEST_TYPE(example_interfaces, Float32MultiArray)
+
+// #include <example_interfaces/msg/float64.h>
+// TEST_TYPE(example_interfaces, Float64)
+
+// #include <example_interfaces/msg/float64_multi_array.h>
+// TEST_TYPE(example_interfaces, Float64MultiArray)
+
+// #include <example_interfaces/msg/int16.h>
+// TEST_TYPE(example_interfaces, Int16)
+
+// #include <example_interfaces/msg/int16_multi_array.h>
+// TEST_TYPE(example_interfaces, Int16MultiArray)
+
+// #include <example_interfaces/msg/int32.h>
+// TEST_TYPE(example_interfaces, Int32)
+
+// #include <example_interfaces/msg/int32_multi_array.h>
+// TEST_TYPE(example_interfaces, Int32MultiArray)
+
+// #include <example_interfaces/msg/int64.h>
+// TEST_TYPE(example_interfaces, Int64)
+
+// #include <example_interfaces/msg/int64_multi_array.h>
+// TEST_TYPE(example_interfaces, Int64MultiArray)
+
+// #include <example_interfaces/msg/int8.h>
+// TEST_TYPE(example_interfaces, Int8)
+
+// #include <example_interfaces/msg/int8_multi_array.h>
+// TEST_TYPE(example_interfaces, Int8MultiArray)
+
+// #include <example_interfaces/msg/multi_array_dimension.h>
+// TEST_TYPE(example_interfaces, MultiArrayDimension)
+
+// #include <example_interfaces/msg/multi_array_layout.h>
+// TEST_TYPE(example_interfaces, MultiArrayLayout)
+
+// #include <example_interfaces/msg/string.h>
+// TEST_TYPE(example_interfaces, String)
+
+// #include <example_interfaces/msg/u_int16.h>
+// TEST_TYPE(example_interfaces, UInt16)
+
+// #include <example_interfaces/msg/u_int16_multi_array.h>
+// TEST_TYPE(example_interfaces, UInt16MultiArray)
+
+// #include <example_interfaces/msg/u_int32.h>
+// TEST_TYPE(example_interfaces, UInt32)
+
+// #include <example_interfaces/msg/u_int32_multi_array.h>
+// TEST_TYPE(example_interfaces, UInt32MultiArray)
+
+// #include <example_interfaces/msg/u_int64.h>
+// TEST_TYPE(example_interfaces, UInt64)
+
+// #include <example_interfaces/msg/u_int64_multi_array.h>
+// TEST_TYPE(example_interfaces, UInt64MultiArray)
+
+// #include <example_interfaces/msg/u_int8.h>
+// TEST_TYPE(example_interfaces, UInt8)
+
+// #include <example_interfaces/msg/u_int8_multi_array.h>
+// TEST_TYPE(example_interfaces, UInt8MultiArray)
+
+// #include <example_interfaces/msg/w_string.h>
+// TEST_TYPE(example_interfaces, WString)
