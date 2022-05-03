@@ -271,6 +271,7 @@ static bool _@(message.structure.namespaced_type.name)__cdr_deserialize(
   bool rv = false;
 
   if (!untyped_ros_message) {
+    puts("ros_message for @(member.name) is NULL");
     return false;
   }
   _@(message.structure.namespaced_type.name)__ros_msg_type * ros_message = (_@(message.structure.namespaced_type.name)__ros_msg_type *)(untyped_ros_message);
@@ -317,6 +318,7 @@ static bool _@(message.structure.namespaced_type.name)__cdr_deserialize(
     rv = ucdr_deserialize_uint32_t(cdr, &size);
 
     if(size > ros_message->@(member.name).capacity){
+      printf("size = %d; ros_message->@(member.name).capacity = %d\n", size, ros_message->@(member.name).capacity);
       return 0;
     }
 
@@ -334,6 +336,7 @@ static bool _@(message.structure.namespaced_type.name)__cdr_deserialize(
     rv = ucdr_deserialize_uint32_t(cdr, &size);
 
     if(size > ros_message->@(member.name).capacity){
+      printf("size = %d; ros_message->@(member.name).capacity = %d\n", size, ros_message->@(member.name).capacity);
       return 0;
     }
     ros_message->@(member.name).size = size;
@@ -383,6 +386,8 @@ static bool _@(message.structure.namespaced_type.name)__cdr_deserialize(
   // Micro CDR does not support this type.
 @[  end if]@
 @[end for]@
+  if (!rv)
+    printf("Returning FALSE when deserializing @(member.name)\n");
   return rv;
 }
 
